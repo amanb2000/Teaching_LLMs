@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <script>
+    let points = [];
+    let edges = [];
+    let triangles = [];
+    let tetrahedra = [];
+    let displayMode = 0;
+    let numPointsSlider;
+    let epsilonSlider;
+    let showEpsilonBalls = false;
+
+	function setup() {
+      createCanvas(600, 600, WEBGL);
+      createSliders();
+      generatePointCloud(numPointsSlider.value());
+      computeSimplicialComplexes();
+      createButtons();
+    }
+
+    function draw() {
+      background(220);
+      rotateX(frameCount * 0.01);
+      rotateY(frameCount * 0.01);
+
+      if (displayMode === 0) {
+        displayPoints();
+      } else if (displayMode === 1) {
+        displayEdges();
+      } else if (displayMode === 2) {
+        displayTriangles();
+      } else if (displayMode === 3) {
+        displayTetrahedra();
+      }
+
+      if (showEpsilonBalls) {
+        displayEpsilonBalls();
+      }
+    }
+
+    function generatePointCloud(numPoints) {
+      points = [];
+      for (let i = 0; i < numPoints; i++) {
+        const x = random(-100, 100);
+        const y = random(-100, 100);
+        const z = random(-100, 100);
+        points.push([x, y, z]);
+      }
+    }
+
+    function computeSimplicialComplexes() {
+      edges = [];
+      triangles = [];
+      tetrahedra = [];
+
+      const epsilon = epsilonSlider.value();
+
+      // Compute edges
+      for (let i = 0; i < points.length - 1; i++) {
+        for (let j = i + 1; j < points.length; j++) {
+          const dist = distance(points[i], points[j]);
+          if (dist < epsilon) {
+            edges.push([i, j]);
+          }
+        }
+      }
+
+      // Compute triangles
+      for (let i = 0; i < edges.length - 1; i++) {
+        for (let j = i + 1; j < edges.length; j++) {
+          const sharedPoint = getSharedPoint(edges[i], edges[j]);
+          if (sharedPoint !== -1) {
+            const otherPoint1 = edges[i][0] === sharedPoint ? edges[i][1] : edges[i][0];
+            const otherPoint2 = edges[j][0] === sharedPoint ? edges[j][1] : edges[j][0];
+            triangles.push([sharedPoint, otherPoint1, otherPoint2]);
+          }
+        }
+      }
+
+      // Compute tetrahedra
+      for (let i = 0; i < triangles.length - 1; i++) {
+        for (let j = i + 1; j < triangles.length; j++) {
+          const sharedEdge = getSharedEdge(triangles[i], triangles[j]);
+          if (sharedEdge.length === 2) {
+            const otherPoint1 = getOtherPoint(triangles[i], sharedEdge);
+            const otherPoint2 = getOtherPoint(triangles[j], sharedEdge);
+            tetrahedra.push([...sharedEdge, otherPoint1, otherPoint2]);
+          }
+        }
+      }
+    }
+
+    function displayPoints() {
+      stroke(0);
+      for (let i = 0; i < points.length; i++) {
+        const [x, y, z] = points[i];
+        push();
+        translate(x, y, z);
+        sphere(2);
+        pop();
+      }
+    }
+	function displayEdges() {
+      stroke(0);
+      for (let i = 0; i < edges.length; i++) {
+        const [p1, p2] = edges[i];
+        const [x1, y1, z1] = points[p1];
+        const [x2, y2, z2] = points[p2];
+        const color = getColor(p1, p2);
+        stroke(color);
+        line(x1, y1, z1, x2, y2, z2);
+      }
+    }
+
+    function displayTriangles() {
+      for (let i = 0; i < triangles.length; i++) {
+        const [p1, p2, p3] = triangles[i];
+        const [x1, y1, z1] = points[p1];
+        const [x2, y2, z2] = points[p2];
+        const [x3, y3, z3] = points[p3];
+        const color = getColor(p1, p2, p3);
+        fill(color);
+        beginShape();
+        vertex(x1, y1, z1);
+        vertex(x2, y2, z2);
+        vertex(x3, y3, z3);
+        endShape(CLOSE);
+      }
+    }
+
+    function displayTetrahedra() {
+      for (let i = 0; i < tetrahedra.length; i++) {
+        const [p1, p2, p3, p4] = tetrahedra[i];
+        const [x1, y1, z1] = points[p1];
+        const [x2, y2, z2] = points[p2];
+        const [x3, y3, z3] = points[p3];
+        const [x4, y4, z4] = points[p4];
+        const color = getColor(p1, p2, p3, p4);
+        fill(color);
+        beginShape();
+        vertex(x1, y1, z1);
+        vertex(x2, y2, z2);
+        vertex(x3, y3, z3);
+        vertex(x4, y4, z4);
+        endShape(CLOSE);
+      }
+    }
+
+    function getColor(...indices) {
+      const str = indices.join(',');
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const color = [
+        (hash & 0xFF0000) >> 16,
+        (hash & 0x00FF00) >> 8,
+        hash & 0x0000FF,
+      ];
+      return color;
+    }
+
+
+    function displayEpsilonBalls() {
+      const epsilon = epsilonSlider.value();
+      noFill();
+      stroke(100, 200, 200, 50);
+      for (let i = 0; i < points.length; i++) {
+        const [x, y, z] = points[i];
+        push();
+        translate(x, y, z);
+        sphere(epsilon / 2, 8, 8);
+        pop();
+      }
+    }
+
+    function createButtons() {
+      const pointsButton = createButton('Points');
+      pointsButton.mousePressed(() => {
+        displayMode = 0;
+      });
+
+      const edgesButton = createButton('Edges');
+      edgesButton.mousePressed(() => {
+        displayMode = 1;
+      });
+
+      const trianglesButton = createButton('Triangles');
+      trianglesButton.mousePressed(() => {
+        displayMode = 2;
+      });
+
+      const tetrahedraButton = createButton('Tetrahedra');
+      tetrahedraButton.mousePressed(() => {
+        displayMode = 3;
+      });
+
+      const epsilonBallsCheckbox = createCheckbox('Show Epsilon Balls', false);
+      epsilonBallsCheckbox.changed(() => {
+        showEpsilonBalls = epsilonBallsCheckbox.checked();
+      });
+    }
+
+	function createSliders() {
+      numPointsSlider = createSlider(1, 100, 20);
+      numPointsSlider.input(() => {
+        const numPoints = numPointsSlider.value();
+        generatePointCloud(numPoints);
+        computeSimplicialComplexes();
+      });
+
+      epsilonSlider = createSlider(10, 100, 50);
+      epsilonSlider.input(() => {
+        computeSimplicialComplexes();
+      });
+    }
+
+
+    function distance(p1, p2) {
+      const [x1, y1, z1] = p1;
+      const [x2, y2, z2] = p2;
+      return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2);
+    }
+
+    function getSharedPoint(edge1, edge2) {
+      for (let i = 0; i < 2; i++) {
+        if (edge2.includes(edge1[i])) {
+          return edge1[i];
+        }
+      }
+      return -1;
+    }
+
+    function getSharedEdge(triangle1, triangle2) {
+      const sharedPoints = [];
+      for (let i = 0; i < 3; i++) {
+        if (triangle2.includes(triangle1[i])) {
+          sharedPoints.push(triangle1[i]);
+        }
+      }
+      return sharedPoints;
+    }
+
+    function getOtherPoint(triangle, edge) {
+      for (let i = 0; i < 3; i++) {
+        if (!edge.includes(triangle[i])) {
+          return triangle[i];
+        }
+      }
+    }
+  </script>
+</head>
+<body>
+  <main></main>
+  <p>Left slider: number of points</p>
+  <p>Right slider: epsilon</p>
+</body>
+</html>
