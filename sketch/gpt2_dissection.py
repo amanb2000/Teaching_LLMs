@@ -30,4 +30,5 @@ type(model.transformer.h[0].mlp.act)
 
 # %%
 type(model)
-# %%
+# %% Run a forward pass with some tokens 
+input_str = "To the assembled audience, I proclaim my will for personal freedom. Let me free, let me free, let me free,"
