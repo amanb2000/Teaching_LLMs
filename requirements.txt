@@ -5,6 +5,7 @@ seaborn
 
 torch 
 transformers
+accelerate
 einops
 
 jupyter
